@@ -1,6 +1,6 @@
 ---
 name: g67-git
-description: 将当前 OpenSpec 任务的代码同步到 G67 Engine 目录，在完成代码 review 和静态检查后创建 future_cxc_ 任务分支，以中文和 refs 单号提交，更新并 rebase future，推送分支并打开网页发起合并请求。适用于用户要求执行 G67 任务提交流程时。
+description: 将当前 OpenSpec 任务的代码、tasks.md 及相关文档同步到 G67 Engine 目录，在完成代码 review 和静态检查后创建 future_cxc_ 任务分支，以中文和 refs 单号提交，更新并 rebase future，推送分支并打开网页发起合并请求。适用于用户要求执行 G67 任务提交流程时。
 ---
 
 # G67 Git 任务提交
@@ -20,7 +20,9 @@ description: 将当前 OpenSpec 任务的代码同步到 G67 Engine 目录，在
 ## 2. 将本任务文件同步到目标目录
 
 - 先建立明确的源文件到目标文件映射，保留相对 Engine 根目录的路径，避免出现 `Engine\Engine`。清单区分新增、修改、删除、重命名，并只包含本任务所需文件。
-- 不整目录覆盖，不复制 `.git`、缓存、构建产物、凭据或无关任务文件。OpenSpec 文档仅在属于本次交付范围时同步。
+- 当前 OpenSpec 任务文档必须纳入同步清单：复制对应 change 下的 `tasks.md`，以及实际存在的 `proposal.md`、`design.md`、`specs/` 内的规格文档和其他与该任务相关的说明文档。即使这些文档在源仓库中没有未提交改动，也必须检查并同步，不能仅依据 `git diff` 筛选而遗漏。
+- 将该任务文档保留在目标目录的 `openspec/changes/<change-id>/` 下，例如 `G:\g67\AIClothFuture\Engine\openspec\changes\<change-id>\tasks.md`，保留 change 内的子目录结构。任务文档引用 change 外的本地文档且交付需要时，一并按相对 OpenSpec 根目录的路径同步到目标 `openspec/` 下，保持引用可用；不复制其他无关 change 或整个 OpenSpec 目录。源端缺少 `tasks.md` 时先确认实际任务文档位置，不创建虚假文档或跳过文档同步。
+- 不整目录覆盖，不复制 `.git`、缓存、构建产物、凭据或无关任务文件。
 - 记录目标仓库原始分支、HEAD 和状态。已有改动与本任务路径重叠，或无法保证单独提交时，停止并说明冲突；不要自动覆盖、清理或 stash 用户的改动。
 - 在复制前检查每个解析后的绝对目标路径均位于指定 Engine 目录内，包括删除、重命名和链接路径。使用 PowerShell 的 `Copy-Item -LiteralPath` 逐文件复制，按需创建父目录。删除和重命名仅执行清单中已经确认的任务变更，使用同一 PowerShell 环境及 `-LiteralPath`，不使用镜像同步删除。
 - 对比目标差异与任务清单，确认没有遗漏、错位或额外覆盖。目标基础代码不同导致语义差异时，重新 review 并执行适用静态检查，通过后继续。
@@ -39,7 +41,7 @@ git switch -c $taskBranch
 
 ## 4. 使用中文提交
 
-只暂存清单中的目标仓库相对路径，使用 `git add -A -- <明确路径列表>`，包含已确认的删除。不要使用无路径限制的 `git add .` 或 `git add -A`。暂存区如已有无关内容，先停止处理归属，不能混入本次提交。
+只暂存清单中的目标仓库相对路径，使用 `git add -A -- <明确路径列表>`，包含已确认的删除，以及同步后新增或修改的 OpenSpec 任务文档，与代码一起提交。提交前核对目标 `tasks.md` 及相关文档与源端一致；目标已存在且内容相同的文档无需制造差异。若文档被忽略规则排除，先检查 `git check-ignore -v`，对确认属于本任务的文档使用明确路径的 `git add -f -- <文档路径列表>`，不要更改全局忽略配置。不要使用无路径限制的 `git add .` 或 `git add -A`。暂存区如已有无关内容，先停止处理归属，不能混入本次提交。
 
 查看 `git diff --cached` 和 `git diff --cached --check`，核对暂存内容与已 review 的任务改动一致。空差异不创建空提交，先确认任务是否已同步或提交。
 
