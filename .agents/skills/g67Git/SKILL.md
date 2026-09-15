@@ -24,20 +24,21 @@ description: 将当前 OpenSpec 任务的代码、tasks.md 及相关文档同步
 - 将该任务文档保留在目标目录的 `openspec/changes/<change-id>/` 下，例如 `G:\g67\AIClothFuture\Engine\openspec\changes\<change-id>\tasks.md`，保留 change 内的子目录结构。任务文档引用 change 外的本地文档且交付需要时，一并按相对 OpenSpec 根目录的路径同步到目标 `openspec/` 下，保持引用可用；不复制其他无关 change 或整个 OpenSpec 目录。源端缺少 `tasks.md` 时先确认实际任务文档位置，不创建虚假文档或跳过文档同步。
 - 不整目录覆盖，不复制 `.git`、缓存、构建产物、凭据或无关任务文件。
 - 记录目标仓库原始分支、HEAD 和状态。已有改动与本任务路径重叠，或无法保证单独提交时，停止并说明冲突；不要自动覆盖、清理或 stash 用户的改动。
+- 同步文件前，若目标仓库当前分支不是 `future`，直接执行 `git switch future`，无需询问用户确认；已在 `future` 时继续。切换失败时保留现场并报告具体原因，不强制切换或丢弃改动。确认当前分支为 `future`，并记录其 HEAD，作为创建任务分支的基点。
 - 在复制前检查每个解析后的绝对目标路径均位于指定 Engine 目录内，包括删除、重命名和链接路径。使用 PowerShell 的 `Copy-Item -LiteralPath` 逐文件复制，按需创建父目录。删除和重命名仅执行清单中已经确认的任务变更，使用同一 PowerShell 环境及 `-LiteralPath`，不使用镜像同步删除。
 - 对比目标差异与任务清单，确认没有遗漏、错位或额外覆盖。目标基础代码不同导致语义差异时，重新 review 并执行适用静态检查，通过后继续。
 
-## 3. 从目标当前分支新建任务分支
+## 3. 从 future 新建任务分支
 
 分支格式为 `future_cxc_<task-slug>`，其中 task-slug 来自上面的 OpenSpec 任务名称或 change-id。将空格及非法字符转换为 `-`，保留可识别的任务含义，使用 `git check-ref-format --branch` 验证。`modifiy` 是任务名称占位含义，不是固定后缀。
 
-在目标仓库从复制前记录的当前分支 HEAD 建分支，不切换到 future 再创建：
+在目标仓库从复制前已切换到的 `future` 分支 HEAD 创建任务分支：
 
 ```powershell
 git switch -c $taskBranch
 ```
 
-执行前确认 HEAD 未被其他操作改变，且不是 detached HEAD。检查同名本地及远端分支；已存在时先判断是否为本任务的续作，不覆盖或重置已有分支，归属不明时询问用户。
+执行前确认当前分支为 `future`，且 HEAD 与复制前记录的基点一致。检查同名本地及远端分支；已存在时先判断是否为本任务的续作，不覆盖或重置已有分支，归属不明时询问用户。
 
 ## 4. 使用中文提交
 
