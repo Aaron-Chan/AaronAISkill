@@ -1,6 +1,6 @@
 ---
 name: g67-git
-description: 将当前 OpenSpec 任务的代码、tasks.md 及相关文档同步到 G67 Engine 目录，在完成代码 review 和静态检查后创建 future_cxc_ 任务分支，以中文和 refs 单号提交，更新并 rebase future，推送分支并打开网页发起合并请求。适用于用户要求执行 G67 任务提交流程时。
+description: 将当前 OpenSpec 任务的代码、tasks.md 及相关文档同步到 G67 Engine 目录，在完成代码 review 和静态检查后创建基于目标基础分支（默认 future，用户明确指定时支持 trunk）的 cxc_ 任务分支，以中文和 refs 单号提交，更新并 rebase 该基础分支，推送分支并打开网页发起合并请求。适用于用户要求执行 G67 任务提交流程时。
 ---
 
 # G67 Git 任务提交
@@ -12,6 +12,7 @@ description: 将当前 OpenSpec 任务的代码、tasks.md 及相关文档同步
 ## 1. 确定任务及检查前提
 
 - 读取源工作区和目标目录适用的 `AGENTS.md`，确认源代码根目录、目标 Git 仓库根目录、当前分支以及 `origin` 地址。目标目录可能只是仓库的子目录，Git 操作使用其所属仓库。
+- 确定本次任务的目标基础分支（记为 `$baseBranch`），默认值为 `future`；仅当用户明确指定使用 `trunk` 时才改为 `trunk`。用户未提及基础分支时不询问，直接使用默认的 `future`。
 - 从当前会话定位正在实施的 OpenSpec change，读取对应的 `tasks.md`，通常位于 `openspec/changes/<change-id>/tasks.md`。优先使用明确的任务名称，否则使用其 change-id；不要直接以通用文件名 `tasks` 命名分支。多个任务无法判定时询问用户。
 - 从会话、任务文档或明确关联的单据获取真实单号和单号标题，缺失时询问，不编造 `xxx` 单号。任务名、单号、标题分别记录，不假定三者相同。
 - review 本任务最终代码差异并解决阻断问题；执行项目已有的适用静态检查，记录命令及结果。已有检查仅在覆盖当前最终版本时复用。未完成 review、检查失败或工具缺失时，不进入复制及提交步骤，说明具体阻碍。
@@ -24,21 +25,21 @@ description: 将当前 OpenSpec 任务的代码、tasks.md 及相关文档同步
 - 将该任务文档保留在目标目录的 `openspec/changes/<change-id>/` 下，例如 `G:\g67\AIClothFuture\Engine\openspec\changes\<change-id>\tasks.md`，保留 change 内的子目录结构。任务文档引用 change 外的本地文档且交付需要时，一并按相对 OpenSpec 根目录的路径同步到目标 `openspec/` 下，保持引用可用；不复制其他无关 change 或整个 OpenSpec 目录。源端缺少 `tasks.md` 时先确认实际任务文档位置，不创建虚假文档或跳过文档同步。
 - 不整目录覆盖，不复制 `.git`、缓存、构建产物、凭据或无关任务文件。
 - 记录目标仓库原始分支、HEAD 和状态。已有改动与本任务路径重叠，或无法保证单独提交时，停止并说明冲突；不要自动覆盖、清理或 stash 用户的改动。
-- 同步文件前，若目标仓库当前分支不是 `future`，直接执行 `git switch future`，无需询问用户确认；已在 `future` 时继续。切换失败时保留现场并报告具体原因，不强制切换或丢弃改动。确认当前分支为 `future`，并记录其 HEAD，作为创建任务分支的基点。
+- 同步文件前，若目标仓库当前分支不是 `$baseBranch`，直接执行 `git switch $baseBranch`，无需询问用户确认；已在 `$baseBranch` 时继续。切换失败时保留现场并报告具体原因，不强制切换或丢弃改动。确认当前分支为 `$baseBranch`，并记录其 HEAD，作为创建任务分支的基点。
 - 在复制前检查每个解析后的绝对目标路径均位于指定 Engine 目录内，包括删除、重命名和链接路径。使用 PowerShell 的 `Copy-Item -LiteralPath` 逐文件复制，按需创建父目录。删除和重命名仅执行清单中已经确认的任务变更，使用同一 PowerShell 环境及 `-LiteralPath`，不使用镜像同步删除。
 - 对比目标差异与任务清单，确认没有遗漏、错位或额外覆盖。目标基础代码不同导致语义差异时，重新 review 并执行适用静态检查，通过后继续。
 
-## 3. 从 future 新建任务分支
+## 3. 从基础分支新建任务分支
 
-分支格式为 `future_cxc_<task-slug>`，其中 task-slug 来自上面的 OpenSpec 任务名称或 change-id。将空格及非法字符转换为 `-`，保留可识别的任务含义，使用 `git check-ref-format --branch` 验证。`modifiy` 是任务名称占位含义，不是固定后缀。
+分支格式为 `${baseBranch}_cxc_<task-slug>`（如基础分支为 `future` 则为 `future_cxc_<task-slug>`，为 `trunk` 则为 `trunk_cxc_<task-slug>`），其中 task-slug 来自上面的 OpenSpec 任务名称或 change-id。将空格及非法字符转换为 `-`，保留可识别的任务含义，使用 `git check-ref-format --branch` 验证。`modifiy` 是任务名称占位含义，不是固定后缀。
 
-在目标仓库从复制前已切换到的 `future` 分支 HEAD 创建任务分支：
+在目标仓库从复制前已切换到的 `$baseBranch` 分支 HEAD 创建任务分支：
 
 ```powershell
 git switch -c $taskBranch
 ```
 
-执行前确认当前分支为 `future`，且 HEAD 与复制前记录的基点一致。检查同名本地及远端分支；已存在时先判断是否为本任务的续作，不覆盖或重置已有分支，归属不明时询问用户。
+执行前确认当前分支为 `$baseBranch`，且 HEAD 与复制前记录的基点一致。检查同名本地及远端分支；已存在时先判断是否为本任务的续作，不覆盖或重置已有分支，归属不明时询问用户。
 
 ## 4. 使用中文提交
 
@@ -63,16 +64,16 @@ refs #12345 [修复布料碰撞] 修复角色切换后碰撞数据未更新的�
 
 说明描述实际改动及目的。多行消息使用 UTF-8 临时文件配合 `git commit -F <文件路径>`，临时文件不进入提交，避免 PowerShell 字符转义改变消息内容。提交后检查提交内容与单号格式，并记录提交 SHA。
 
-## 5. 先更新 future，再 rebase
+## 5. 先更新 `$baseBranch`，再 rebase
 
 提交完成后，在目标仓库严格依次执行；前一步成功才执行下一步：
 
 ```powershell
-git fetch origin future:future
-git rebase future
+git fetch origin ${baseBranch}:${baseBranch}
+git rebase $baseBranch
 ```
 
-执行前工作区及暂存区须干净；存在原有无关改动时，不自动 stash，说明需要处理的文件。若本地 future 被其他 worktree 检出、fetch 非快进被拒绝、网络失败或权限不足，保留现场并报告，不加 `+` 强制更新、不 reset 分支、不跳过 fetch。
+执行前工作区及暂存区须干净；存在原有无关改动时，不自动 stash，说明需要处理的文件。若本地 `$baseBranch` 被其他 worktree 检出、fetch 非快进被拒绝、网络失败或权限不足，保留现场并报告，不加 `+` 强制更新、不 reset 分支、不跳过 fetch。
 
 rebase 冲突只在理解双方意图时解决，不批量选择 ours/theirs，不丢弃无关代码。无法判断时列出冲突文件和待确认点，保持可恢复状态。解决后使用 `git rebase --continue`；不得在 rebase 未完成时推送。
 
@@ -88,10 +89,10 @@ git push origin $taskBranch
 
 不得默认 force push。推送被拒绝时检查远端变化并说明原因，不覆盖他人提交。推送成功后核对本地 HEAD 与远端任务分支一致。
 
-从目标仓库 `origin` 推导对应代码托管网页，SSH 地址须转换为正确的 HTTPS 仓库地址；不可猜测私有服务的网页端口或路径。优先使用推送输出中的合并请求链接。已知 GitLab 可打开预填 source branch 为任务分支、target branch 为 `future` 的新建 Merge Request 页面；GitHub 可打开 `future...<任务分支>` 的 compare 页面。分支查询参数需 URL 编码，页面上再次核实来源和目标分支。
+从目标仓库 `origin` 推导对应代码托管网页，SSH 地址须转换为正确的 HTTPS 仓库地址；不可猜测私有服务的网页端口或路径。优先使用推送输出中的合并请求链接。已知 GitLab 可打开预填 source branch 为任务分支、target branch 为 `$baseBranch` 的新建 Merge Request 页面；GitHub 可打开 `$baseBranch...<任务分支>` 的 compare 页面。分支查询参数需 URL 编码，页面上再次核实来源和目标分支。
 
 在 Windows 上使用 `Start-Process` 打开已确认的网页地址供用户操作。环境不能打开浏览器时给出可点击链接；平台未知时打开仓库分支页面，并说明选择任务分支向 `future` 提交。不要声称已创建合并请求，除非实际创建成功。
 
 ## 完成报告
 
-简要报告：任务名称、同步文件数量与目标目录、review 和静态检查结果、任务分支、最终提交 SHA 与提交标题、fetch/rebase/push 状态，以及网页链接。未完成时指出停在哪一步和具体原因，不把仅已提交但未推送描述为完成。
+简要报告：任务名称、基础分支（`future` 或 `trunk`）、同步文件数量与目标目录、review 和静态检查结果、任务分支、最终提交 SHA 与提交标题、fetch/rebase/push 状态，以及网页链接。未完成时指出停在哪一步和具体原因，不把仅已提交但未推送描述为完成。
